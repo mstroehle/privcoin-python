@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-__version__ = '0.0.1'
+__version__ = '0.0.2'
 
 # API documentation: https://www.privcoin.io/api/
 
@@ -37,7 +37,10 @@ def api_request(url, json_params=None, get_params=None, retry=False):
             logging.warning('Got an error, but retrying: {}'.format(e))
             sleep(5)
             # Try again.
-            return api_request(url, json_params, retry=retry)
+            return api_request(url,
+                               json_params=json_params,
+                               get_params=get_params,
+                               retry=retry)
         else:
             raise
 
@@ -56,7 +59,10 @@ def api_request(url, json_params=None, get_params=None, retry=False):
             logging.warning('Got a 500, retrying in 5 seconds...')
             sleep(5)
             # Try again if we get a 500
-            return api_request(url, json_params, retry=retry)
+            return api_request(url,
+                               json_params=json_params,
+                               get_params=get_params,
+                               retry=retry)
         else:
             raise Exception(request.content)
     else:
@@ -69,7 +75,7 @@ def api_request(url, json_params=None, get_params=None, retry=False):
 @cli.cmd_arg('--currency', type=str, required=True)
 @cli.cmd_arg('--output_address', type=str, required=True)
 @cli.cmd_arg('--endpoint', type=str, default=DEFAULT_ENDPOINT)
-def _mix_terminal(currency, output_address, endpoint):
+def _mix_terminal(currency, output_address, endpoint=DEFAULT_ENDPOINT):
     output = mix(currency=currency,
                  output_address=output_address,
                  endpoint=endpoint)
