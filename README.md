@@ -10,6 +10,10 @@
 
 * `privcoin check (bitcode from previous output)`
 
+## Screenshot
+
+![privcoin CLI screenshot](https://pic8.co/sh/wl7CoZ.png)
+
 # Licence
 
 [Unlicense/Public domain](LICENSE.txt)

@@ -1,11 +1,12 @@
 #!/usr/bin/python3
 
-__version__ = '0.0.2'
+__version__ = '0.0.3'
 
 # API documentation: https://www.privcoin.io/api/
 
 import logging
 from time import sleep
+from random import randint
 
 import aaargh
 import requests
@@ -18,8 +19,9 @@ DEFAULT_ENDPOINT = 'https://www.privcoin.io'
 # Tor endpoint
 # DEFAULT_ENDPOINT = 'http://tr5ods7ncr6eznny.onion'
 
+# Sets a random fee between 2.1 and 2.9.
+DEFAULT_FEE = float('2.{}'.format(randint(1, 9)))
 DEFAULT_AFFILIATE = 'b69f11b'
-DEFAULT_FEE = 2.5
 DEFAULT_RETRY = False
 DEFAULT_DELAY = 1
 
@@ -83,13 +85,13 @@ def _mix_terminal(currency, output_address, endpoint=DEFAULT_ENDPOINT):
     qr = pyqrcode.create(uri).terminal(module_color='black',
                                        background='white',
                                        quiet_zone=1)
-    letter = letter_of_guarantee(output['bitcode'])
+    letter = letter_of_guarantee(output['id'], endpoint=endpoint)
     msg = '{}\n{}\nMinimum: {} Maximum: {} Bitcode: {}\n{}'
     terminal_output = msg.format(qr,
                                  uri,
-                                 output['minamount'],
-                                 output['maxamount'],
-                                 output['bitcode'],
+                                 output['minimum'],
+                                 output['maximum'],
+                                 output['id'],
                                  letter)
     return terminal_output
 
@@ -105,6 +107,8 @@ def mix(currency,
     currency must be one of: bitcoin, bitcoincash, ethereum, litecoin
     output_address is destination for mixed coins.
     affiliate is None or string.
+
+    Output is a dict containing id, address, minimum, and maximum.
     """
     validate.currency(currency)
 
@@ -124,7 +128,11 @@ def mix(currency,
         raise ValueError('status not in JSON output from privcoin?')
     if output['status'] != 'success':
         raise ValueError(output['message'])
-    return output
+    output_dict = {'id': output['bitcode'],
+                   'address': output['address'],
+                   'minimum': output['minamount'],
+                   'maximum': output['maxamount']}
+    return output_dict
 
 
 @cli.cmd
