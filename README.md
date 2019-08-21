@@ -3,6 +3,7 @@
 ## Installation
 
 * `pip3 install privcoin || pip install privcoin`
+* Make sure a Tor SOCKS proxy is running locally (127.0.0.1:9050)
 
 ## Usage
 

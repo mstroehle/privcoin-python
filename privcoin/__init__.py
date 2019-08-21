@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-__version__ = '0.0.3'
+__version__ = '0.0.4'
 
 # API documentation: https://www.privcoin.io/api/
 
@@ -15,34 +15,91 @@ import pyqrcode
 from . import validate
 
 
-DEFAULT_ENDPOINT = 'https://www.privcoin.io'
-# Tor endpoint
-# DEFAULT_ENDPOINT = 'http://tr5ods7ncr6eznny.onion'
+CLEARNET_ENDPOINT = 'https://www.privcoin.io'
+TOR_ENDPOINT = 'http://tr5ods7ncr6eznny.onion'
+
+DEFAULT_ENDPOINT = TOR_ENDPOINT
 
 # Sets a random fee between 2.1 and 2.9.
 DEFAULT_FEE = float('2.{}'.format(randint(1, 9)))
 DEFAULT_AFFILIATE = 'b69f11b'
-DEFAULT_RETRY = False
 DEFAULT_DELAY = 1
+DEFAULT_RETRY = False
+DEFAULT_TIMEOUT = 60
 
 cli = aaargh.App()
 
+USE_TOR_PROXY = 'auto'
+TOR_PROXY = 'socks5h://127.0.0.1:9050'
+# For requests module
+TOR_PROXY_REQUESTS = {'http': TOR_PROXY, 'https': TOR_PROXY}
 
-def api_request(url, json_params=None, get_params=None, retry=False):
+cli = aaargh.App()
+
+logging.basicConfig(level=logging.WARNING)
+
+
+def validate_use_tor_proxy(use_tor_proxy):
+    if isinstance(use_tor_proxy, bool):
+        return True
+    if isinstance(use_tor_proxy, str):
+        if use_tor_proxy == 'auto':
+            return True
+
+    raise ValueError('use_tor_proxy must be True, False, or "auto"')
+
+
+def is_onion_url(url):
+    """
+    returns True/False depending on if a URL looks like a Tor hidden service
+    (.onion) or not.
+    This is designed to false as non-onion just to be on the safe-ish side,
+    depending on your view point. It requires URLs like: http://domain.tld/,
+    not http://domain.tld or domain.tld/.
+
+    This can be optimized a lot.
+    """
     try:
-        if json_params is None:
-            request = requests.get(url, params=get_params, timeout=30)
-        else:
-            request = requests.post(url, json=json_params, timeout=30)
+        url_parts = url.split('/')
+        domain = url_parts[2]
+        tld = domain.split('.')[-1]
+        if tld == 'onion':
+            return True
+    except Exception:
+        pass
+    return False
+
+
+def api_request(url,
+                get_params=None,
+                retry=DEFAULT_RETRY,
+                timeout=DEFAULT_TIMEOUT,
+                use_tor_proxy=USE_TOR_PROXY):
+    validate_use_tor_proxy(use_tor_proxy)
+    proxies = {}
+    if use_tor_proxy is True:
+        proxies = TOR_PROXY_REQUESTS
+    elif use_tor_proxy == 'auto':
+        if is_onion_url(url) is True:
+            msg = 'use_tor_proxy is "auto" and we have a .onion url, '
+            msg += 'using local Tor SOCKS proxy.'
+            logging.debug(msg)
+            proxies = TOR_PROXY_REQUESTS
+
+    try:
+        request = requests.get(url,
+                               params=get_params,
+                               timeout=timeout,
+                               proxies=proxies)
     except Exception as e:
         if retry is True:
             logging.warning('Got an error, but retrying: {}'.format(e))
             sleep(5)
             # Try again.
             return api_request(url,
-                               json_params=json_params,
                                get_params=get_params,
-                               retry=retry)
+                               retry=retry,
+                               use_tor_proxy=use_tor_proxy)
         else:
             raise
 
@@ -62,9 +119,9 @@ def api_request(url, json_params=None, get_params=None, retry=False):
             sleep(5)
             # Try again if we get a 500
             return api_request(url,
-                               json_params=json_params,
                                get_params=get_params,
-                               retry=retry)
+                               retry=retry,
+                               use_tor_proxy=use_tor_proxy)
         else:
             raise Exception(request.content)
     else:
